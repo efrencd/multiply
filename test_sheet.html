@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Enviar datos a Google Sheet</title>
+</head>
+<body>
+  <h1>Enviar datos a Google Sheet</h1>
+  <form id="dataForm">
+    <label>
+      Nombre:
+      <input type="text" name="name" required>
+    </label><br><br>
+    <label>
+      Email:
+      <input type="email" name="email" required>
+    </label><br><br>
+    <label>
+      Mensaje:
+      <textarea name="message" required></textarea>
+    </label><br><br>
+    <button type="submit">Enviar</button>
+  </form>
+
+  <div id="response"></div>
+
+  <script>
+    document.getElementById('dataForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      // Recolecta los datos del formulario
+      var formData = new FormData(e.target);
+      var data = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        message: formData.get('message')
+      };
+
+      // Envía la petición POST al Apps Script
+      fetch('https://script.google.com/macros/s/AKfycby16N4CZK3FtgViZYjC40vK9wujekTVGWkLb6lrHFIOcbuS_8nMpa6x_cA1zlE3g7a7AA/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        // Convierte los datos a JSON
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        // Nota: Si hay problemas de CORS, podrías necesitar ajustes adicionales
+        return response.json();
+      })
+      .then(result => {
+        document.getElementById('response').innerText = "Respuesta: " + JSON.stringify(result);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('response').innerText = "Error al enviar los datos.";
+      });
+    });
+  </script>
+</body>
+</html>
