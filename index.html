@@ -9,8 +9,15 @@
 <body>
   <main class="app-card" role="main">
     <header class="app-header">
-      <p class="eyebrow">Entrenamiento relámpago</p>
-      <h1>Multiplica y gana</h1>
+      <div class="heading-row">
+        <div>
+          <p class="eyebrow">Entrenamiento relámpago</p>
+          <h1>Multiplica y gana</h1>
+        </div>
+        <button id="fullscreen-toggle" class="ghost-btn" type="button" aria-pressed="false">
+          Pantalla completa
+        </button>
+      </div>
       <p class="subtitle">Completa 10 retos de multiplicación con números del 1 al 9. Introduce la respuesta con el teclado y pulsa Enter para avanzar.</p>
     </header>
 
@@ -37,17 +44,28 @@
 
       <p id="feedback" class="feedback" aria-live="assertive"></p>
     </section>
-
-    <section id="summary" class="summary" hidden>
-      <h2>¡Buen trabajo!</h2>
-      <p>Has completado los 10 retos.</p>
-      <div class="score-card">
-        <p><strong>Aciertos:</strong> <span id="hits">0</span> de <span id="total">10</span></p>
-        <p><strong>Puntuación:</strong> <span id="final-score">0%</span></p>
-      </div>
-      <button id="restart" class="primary-btn">Volver a intentarlo</button>
-    </section>
   </main>
+
+  <div id="result-modal" class="modal" aria-hidden="true">
+    <div class="modal__backdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <div class="modal__header">
+        <p class="eyebrow">Intento completado</p>
+        <h2 id="result-title">¡Buen trabajo!</h2>
+      </div>
+      <div class="modal__body">
+        <p>Has completado los 10 retos.</p>
+        <div class="score-card">
+          <p><strong>Aciertos:</strong> <span id="hits">0</span> de <span id="total">10</span></p>
+          <p><strong>Puntuación:</strong> <span id="final-score">0%</span></p>
+          <p><strong>Tiempo empleado:</strong> <span id="final-time">00:00</span></p>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button id="restart" class="primary-btn">Volver a intentarlo</button>
+      </div>
+    </div>
+  </div>
 
   <script src="scorm-api.js"></script>
   <script src="app.js"></script>

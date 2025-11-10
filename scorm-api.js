@@ -1,6 +1,7 @@
 const ScormWrapper = (() => {
   let api = null;
   let initialized = false;
+  let attemptCounter = 0;
 
   function findAPI(win) {
     let depth = 0;
@@ -43,9 +44,11 @@ const ScormWrapper = (() => {
     initialized = result;
 
     if (initialized) {
+      attemptCounter += 1;
       safeSetValue("cmi.core.lesson_status", "incomplete");
+      safeSetValue("cmi.core.exit", "");
       api.LMSCommit("");
-      console.info("[SCORM] Sesión inicializada");
+      console.info(`[SCORM] Sesión inicializada (intento ${attemptCounter})`);
     } else {
       console.warn("[SCORM] LMSInitialize devolvió false");
     }
@@ -84,29 +87,85 @@ const ScormWrapper = (() => {
     console.info(`[SCORM] Puntaje reportado: ${score} (${status})`);
   }
 
-  function finish() {
+  function setSessionTime(milliseconds) {
     if (!initialized || !api) {
       return;
     }
 
+    const formatted = msToScormTime(milliseconds);
+    safeSetValue("cmi.core.session_time", formatted);
+  }
+
+  function finishAttempt(exitReason = "logout") {
+    if (!initialized || !api) {
+      return false;
+    }
+
     try {
+      safeSetValue("cmi.core.exit", exitReason);
       api.LMSCommit("");
       api.LMSFinish("");
       initialized = false;
-      console.info("[SCORM] Sesión finalizada");
+      api = null;
+      console.info(`[SCORM] Sesión finalizada (motivo: ${exitReason})`);
+      return true;
     } catch (err) {
       console.error("[SCORM] Error al finalizar la sesión:", err);
+      return false;
+    }
+  }
+
+  function startNewAttempt() {
+    if (initialized) {
+      finishAttempt();
+    }
+    return initialize();
+  }
+
+  function relaunchSCO() {
+    finishAttempt("logout");
+    try {
+      const target = window.top && window.top.location ? window.top : window;
+      target.location.reload();
+      return true;
+    } catch (err) {
+      console.warn("[SCORM] No se pudo recargar la ventana superior. Reintentando con la actual.", err);
+      try {
+        window.location.reload();
+        return true;
+      } catch (innerErr) {
+        console.error("[SCORM] Falló la recarga automática del SCO.", innerErr);
+        return false;
+      }
     }
   }
 
   return {
     init: initialize,
     reportScore,
+    setSessionTime,
     setStatus: (status) => safeSetValue("cmi.core.lesson_status", status),
-    finish,
+    finish: finishAttempt,
+    finishAttempt,
+    startNewAttempt,
+    relaunch: relaunchSCO,
+    isInitialized: () => initialized,
   };
 })();
 
 window.addEventListener("beforeunload", () => {
-  ScormWrapper.finish();
+  ScormWrapper.finishAttempt("time-out");
 });
+
+function msToScormTime(milliseconds) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [
+    hours.toString().padStart(2, "0"),
+    minutes.toString().padStart(2, "0"),
+    seconds.toString().padStart(2, "0"),
+  ].join(":");
+}

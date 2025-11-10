@@ -2,6 +2,7 @@
   const TOTAL_QUESTIONS = 10;
   const MIN_FACTOR = 1;
   const MAX_FACTOR = 9;
+  const NEXT_DELAY_MS = 350;
 
   const questionEl = document.getElementById("question");
   const progressTextEl = document.getElementById("progress-text");
@@ -9,23 +10,27 @@
   const feedbackEl = document.getElementById("feedback");
   const answerInput = document.getElementById("answer");
   const form = document.getElementById("answer-form");
-  const summarySection = document.getElementById("summary");
-  const exerciseSection = document.getElementById("exercise");
+  const submitBtn = form.querySelector("button[type='submit']");
   const hitsEl = document.getElementById("hits");
   const totalEl = document.getElementById("total");
   const finalScoreEl = document.getElementById("final-score");
+  const finalTimeEl = document.getElementById("final-time");
   const restartBtn = document.getElementById("restart");
+  const modal = document.getElementById("result-modal");
+  const fullscreenBtn = document.getElementById("fullscreen-toggle");
 
   let questions = [];
   let currentIndex = 0;
   let correctAnswers = 0;
   let awaitingNext = false;
+  let sessionStart = null;
 
   totalEl.textContent = TOTAL_QUESTIONS.toString();
 
   document.addEventListener("DOMContentLoaded", () => {
     ScormWrapper.init();
     startSession();
+    updateFullscreenButton();
   });
 
   form.addEventListener("submit", (event) => {
@@ -37,19 +42,40 @@
   });
 
   restartBtn.addEventListener("click", () => {
-    startSession();
+    closeModal();
+    restartBtn.disabled = true;
+    restartBtn.textContent = "Creando nuevo intento...";
+    const reloaded = ScormWrapper.relaunch();
+    if (!reloaded) {
+      const restarted = ScormWrapper.startNewAttempt();
+      if (restarted) {
+        startSession();
+      }
+      restartBtn.disabled = false;
+      restartBtn.textContent = "Volver a intentarlo";
+    }
   });
+
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener("click", () => {
+      toggleFullscreen();
+    });
+  }
+
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
 
   function startSession() {
     questions = createQuestions(TOTAL_QUESTIONS);
     currentIndex = 0;
     correctAnswers = 0;
     awaitingNext = false;
+    sessionStart = Date.now();
 
-    summarySection.hidden = true;
-    exerciseSection.hidden = false;
+    answerInput.disabled = false;
+    submitBtn.disabled = false;
     feedbackEl.textContent = "";
     feedbackEl.className = "feedback";
+    closeModal();
 
     updateProgress();
     showQuestion();
@@ -105,7 +131,7 @@
     setTimeout(() => {
       awaitingNext = false;
       goToNextQuestion();
-    }, 800);
+    }, NEXT_DELAY_MS);
   }
 
   function showFeedback(message, type) {
@@ -126,15 +152,21 @@
 
   function finishSession() {
     updateProgressBarFull();
-    exerciseSection.hidden = true;
-    summarySection.hidden = false;
 
     const score = Math.round((correctAnswers / TOTAL_QUESTIONS) * 100);
+    const elapsedMs = sessionStart ? Date.now() - sessionStart : 0;
+
     hitsEl.textContent = correctAnswers.toString();
     finalScoreEl.textContent = `${score}%`;
+    finalTimeEl.textContent = formatDuration(elapsedMs);
+
+    answerInput.disabled = true;
+    submitBtn.disabled = true;
 
     ScormWrapper.reportScore(correctAnswers, TOTAL_QUESTIONS);
-    focusRestartButton();
+    ScormWrapper.setSessionTime(elapsedMs);
+    ScormWrapper.finishAttempt();
+    openModal();
   }
 
   function updateProgressBarFull() {
@@ -146,7 +178,42 @@
     setTimeout(() => answerInput.focus(), 0);
   }
 
-  function focusRestartButton() {
+  function openModal() {
+    modal.classList.add("is-visible");
+    modal.setAttribute("aria-hidden", "false");
     setTimeout(() => restartBtn.focus(), 0);
+  }
+
+  function closeModal() {
+    modal.classList.remove("is-visible");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function toggleFullscreen() {
+    const doc = document;
+    const docEl = doc.documentElement;
+    if (!doc.fullscreenElement) {
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen().catch(() => {});
+      }
+    } else if (doc.exitFullscreen) {
+      doc.exitFullscreen();
+    }
+  }
+
+  function updateFullscreenButton() {
+    if (!fullscreenBtn) {
+      return;
+    }
+    const isFull = Boolean(document.fullscreenElement);
+    fullscreenBtn.textContent = isFull ? "Salir de pantalla completa" : "Pantalla completa";
+    fullscreenBtn.setAttribute("aria-pressed", isFull.toString());
+  }
+
+  function formatDuration(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }
 })();
